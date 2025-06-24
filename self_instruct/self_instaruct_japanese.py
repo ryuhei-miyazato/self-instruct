@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "5,6"
-os.environ["TORCH_COMPILE_DISABLE"] = "1"
+# os.environ["TORCH_COMPILE_DISABLE"] = "1"
 
 import json
 import random
@@ -26,7 +26,8 @@ def initialize_models(model_name):
     model = AutoModelForCausalLM.from_pretrained(
         model_name, 
         device_map="auto", 
-        torch_dtype=torch.float16
+        torch_dtype=torch.float16,
+        attn_implementation="flash_attention_2"
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = 'left'
@@ -34,7 +35,7 @@ def initialize_models(model_name):
 
     return model, tokenizer
 
-def encode_prompt(prompt_instructions, classification=False):
+def encode_prompt(prompt_instructions, tokenizer, classification=False):
     prompt = "あなたはタスク設計の専門家です。与えられた一連のタスクを参考に、形式を揃えて次に来るべきタスクを提案してください。\n"
     # prompt = ""
     for idx, instruction in enumerate(prompt_instructions):
@@ -59,11 +60,11 @@ def instruction_generation(
     formatted_prompt, 
     model, 
     tokenizer, 
-    max_generation_tokens=1024, 
+    max_generation_tokens=512,
     temperature=0.5
 ):
 
-    with torch.no_grad():
+    with torch.inference_mode():
         # ProcessorまたはTokenizerでテキストのみをまとめて前処理
         inputs = tokenizer(
             formatted_prompt,       # List[str]
@@ -77,13 +78,11 @@ def instruction_generation(
             max_new_tokens=max_generation_tokens ,
             do_sample=True,
             temperature=temperature,
-            return_dict_in_generate=True,
-            # output_hidden_states=True,
-            # output_scores=True,
+            return_dict_in_generate=False,
     )
     
     prompt_len = inputs["input_ids"].shape[1]
-    generated_ids = outputs.sequences[:, prompt_len:].cpu()
+    generated_ids = outputs[:, prompt_len:]
     responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
     
     del inputs, outputs, generated_ids   # 明示的に削除
@@ -173,7 +172,7 @@ def parse_args():
     )
     parser.add_argument(
         "--model_name",
-        default="cyberagent/calm3-22b-chat",
+        default="Qwen/Qwen3-30B-A3B",
         type=str,
         help="The organization to use. If not specified, the default organization id will be used."
     )
@@ -223,7 +222,7 @@ if __name__ == "__main__":
                 # sample human instructions from the pool
                 prompt_instructions += random.sample(seed_instructions, args.num_prompt_instructions - len(prompt_instructions))
                 random.shuffle(prompt_instructions)
-                prompt = encode_prompt(prompt_instructions, classification=args.use_clf_seed_tasks_only)
+                prompt = encode_prompt(prompt_instructions,tokenizer,kclassification=args.use_clf_seed_tasks_only)
                 batch_inputs.append(prompt)
             
             results = instruction_generation(batch_inputs, model, tokenizer)
@@ -237,21 +236,23 @@ if __name__ == "__main__":
                 
 
             for inst, metadata in zip(instructions, all_metadata):
-                with Pool(4) as p:
-                    rouge_scores = p.map(partial(scorer.score, inst), seed_instructions + machine_instructions)
-                rouge_scores = [score["rougeL"].fmeasure for score in rouge_scores]
-                # rouge_scores = [scorer.score(inst, e_inst)["rougeL"].fmeasure for e_inst in human_instructions + machine_instructions]
-                if max(rouge_scores) > 0.7:
-                    continue
-                all_instructions = seed_instructions + machine_instructions
-                most_similar_instructions = {
-                        all_instructions[i] : rouge_scores[i] for i in np.argsort(rouge_scores)[-10:][::-1]
-                    }
+                # with Pool(4) as p:
+                #     rouge_scores = p.map(partial(scorer.score, inst), seed_instructions + machine_instructions)
+                # rouge_scores = [score["rougeL"].fmeasure for score in rouge_scores]
+                # # rouge_scores = [scorer.score(inst, e_inst)["rougeL"].fmeasure for e_inst in human_instructions + machine_instructions]
+                # if max(rouge_scores) > 0.7:
+                #     continue
+                # all_instructions = seed_instructions + machine_instructions
+                # most_similar_instructions = {
+                #         all_instructions[i] : rouge_scores[i] for i in np.argsort(rouge_scores)[-10:][::-1]
+                #     }
+                most_similar_instructions = {}
+                
                 machine_instructions.append(inst)
                 fout.write(json.dumps({
                     "instruction": inst,
                     "most_similar": most_similar_instructions,
-                    "avg_similarity_score": float(np.mean(rouge_scores)),
+                    "avg_similarity_score": 0.0,
                     "metadata": metadata,
                     "request_idx": request_idx
                 }, ensure_ascii=False) + "\n")
