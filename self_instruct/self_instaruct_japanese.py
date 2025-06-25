@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5,6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 # os.environ["TORCH_COMPILE_DISABLE"] = "1"
 
 import json
@@ -27,7 +27,6 @@ def initialize_models(model_name):
         model_name, 
         device_map="auto", 
         torch_dtype=torch.float16,
-        attn_implementation="flash_attention_2"
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = 'left'
@@ -222,7 +221,7 @@ if __name__ == "__main__":
                 # sample human instructions from the pool
                 prompt_instructions += random.sample(seed_instructions, args.num_prompt_instructions - len(prompt_instructions))
                 random.shuffle(prompt_instructions)
-                prompt = encode_prompt(prompt_instructions,tokenizer,kclassification=args.use_clf_seed_tasks_only)
+                prompt = encode_prompt(prompt_instructions,tokenizer,classification=args.use_clf_seed_tasks_only)
                 batch_inputs.append(prompt)
             
             results = instruction_generation(batch_inputs, model, tokenizer)
