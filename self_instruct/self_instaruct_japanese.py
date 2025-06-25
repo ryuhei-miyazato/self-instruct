@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 # os.environ["TORCH_COMPILE_DISABLE"] = "1"
 
 import json
@@ -35,7 +35,8 @@ def initialize_models(model_name):
     return model, tokenizer
 
 def encode_prompt(prompt_instructions, tokenizer, classification=False):
-    prompt = "あなたはタスク設計の専門家です。与えられた一連のタスクを参考に、形式を揃えて次に来るべきタスクを提案してください。\n"
+    prompt = "あなたはタスク設計の専門家です。与えられた一連のタスクを参考に、形式を揃えて次に来るべきタスクを提案してください。タスクは日本語で考えてください。\n"
+    prompt = "You are an expert in task design. Based on a given sequence of tasks, please propose the next appropriate task in a consistent format. Please write the task in Japanese."
     # prompt = ""
     for idx, instruction in enumerate(prompt_instructions):
         instruction = re.sub(r"\s+", " ", instruction).strip().rstrip(":")
@@ -156,7 +157,7 @@ def parse_args():
     parser.add_argument(
         "--request_batch_size",
         type=int,
-        default=8,
+        default=16,
         help="The number of requests to send to GPT3 at a time."
     )
     parser.add_argument(
