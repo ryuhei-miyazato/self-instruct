@@ -136,3 +136,4 @@ dmypy.json
 # ichikara_data/merged_output.jsonl
 data
 nohup.merged_output
+logs/
