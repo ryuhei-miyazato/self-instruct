@@ -36,7 +36,7 @@ def initialize_models(model_name):
 
 def encode_prompt(prompt_instructions, tokenizer, classification=False):
     prompt = "あなたはタスク設計の専門家です。与えられた一連のタスクを参考に、形式を揃えて次に来るべきタスクを提案してください。タスクは日本語で考えてください。\n"
-    prompt = "You are an expert in task design. Based on a given sequence of tasks, please propose the next appropriate task in a consistent format. Please write the task in Japanese."
+    # prompt = "You are an expert in task design. Based on a given sequence of tasks, please propose the next appropriate task in a consistent format. Please write the task in Japanese."
     # prompt = ""
     for idx, instruction in enumerate(prompt_instructions):
         instruction = re.sub(r"\s+", " ", instruction).strip().rstrip(":")
